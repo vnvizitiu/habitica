@@ -2,6 +2,9 @@
 
 habitrpg.controller("GroupsCtrl", ['$scope', '$rootScope', 'Shared', 'Groups', '$http', '$q', 'User', 'Members', '$state', 'Notification',
   function($scope, $rootScope, Shared, Groups, $http, $q, User, Members, $state, Notification) {
+    $scope.PARTY_LIMIT_MEMBERS = Shared.constants.PARTY_LIMIT_MEMBERS;
+
+    $scope.inviteOrStartParty = Groups.inviteOrStartParty;
     $scope.isMemberOfPendingQuest = function (userid, group) {
       if (!group.quest || !group.quest.members) return false;
       if (group.quest.active) return false; // quest is started, not pending
@@ -18,7 +21,7 @@ habitrpg.controller("GroupsCtrl", ['$scope', '$rootScope', 'Shared', 'Groups', '
       // If the group is a guild, just check for an intersection with the
       // current user's guilds, rather than checking the members of the group.
       if(group.type === 'guild') {
-        return _.detect(User.user.guilds, function(guildId) { return guildId === group._id });
+        return _.find(User.user.guilds, function(guildId) { return guildId === group._id });
       }
 
       // Similarly, if we're dealing with the user's current party, return true.
@@ -30,6 +33,12 @@ habitrpg.controller("GroupsCtrl", ['$scope', '$rootScope', 'Shared', 'Groups', '
       if (!group.members) return false;
       var memberIds = _.map(group.members, function(x){return x._id});
       return ~(memberIds.indexOf(userid));
+    };
+
+    $scope.isAbleToEditGroup = function (group) {
+      if (group.leader._id === User.user._id) return true;
+      if (User.user.contributor.admin && group.type === "guild") return true;
+      return false;
     };
 
     $scope.isMember = function (user, group) {
@@ -120,25 +129,42 @@ habitrpg.controller("GroupsCtrl", ['$scope', '$rootScope', 'Shared', 'Groups', '
       }
     };
 
-    $scope.openInviteModal = function (group) {
-      if (group.type !== 'party' && group.type !== 'guild') {
-        return console.log('Invalid group type.')
-      }
-
-      $rootScope.openModal('invite-' + group.type, {
-        controller:'InviteToGroupCtrl',
-        resolve: {
-          injectedGroup: function(){
-            return group;
-          }
-        }
-      });
-    };
-
     $scope.quickReply = function (uid) {
       Members.selectMember(uid)
         .then(function (response) {
           $rootScope.openModal('private-message', {controller: 'MemberModalCtrl'});
         });
+    };
+
+    $scope.memberProfileName = function (memberId) {
+      var member = _.find($scope.groupCopy.members, function (member) { return member._id === memberId; });
+      return member.profile.name;
+    };
+
+    $scope.addManager = function () {
+      Groups.Group.addManager($scope.groupCopy._id, $scope.groupCopy._newManager)
+        .then(function (response) {
+          $scope.groupCopy._newManager = '';
+          $scope.groupCopy.managers = response.data.data.managers;
+        });
+    };
+
+    $scope.removeManager = function (memberId) {
+      Groups.Group.removeManager($scope.groupCopy._id, memberId)
+        .then(function (response) {
+          $scope.groupCopy._newManager = '';
+          $scope.groupCopy.managers = response.data.data.managers;
+        });
+    };
+
+    $scope.isManager = function (memberId, group) {
+      return Boolean(group.managers[memberId]);
     }
+
+    $scope.userCanApprove = function (userId, group) {
+      if (!group) return false;
+      var leader = group.leader._id === userId;
+      var userIsManager = !!group.managers[userId];
+      return leader || userIsManager;
+    };
   }]);

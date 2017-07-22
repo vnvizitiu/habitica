@@ -6,7 +6,7 @@ import {
 import { v4 as generateUUID } from 'uuid';
 import { find } from 'lodash';
 
-describe('POST /tasks/:taskId', () => {
+describe('POST /tasks/:taskId/assign/:memberId', () => {
   let user, guild, member, member2, task;
 
   function findAssignedTask (memberTask) {
@@ -82,7 +82,7 @@ describe('POST /tasks/:taskId', () => {
       });
   });
 
-  it('allows user to assign themselves', async () => {
+  it('allows user to assign themselves (claim)', async () => {
     await member.post(`/tasks/${task._id}/assign/${member._id}`);
 
     let groupTask = await user.get(`/tasks/group/${guild._id}`);
@@ -91,6 +91,15 @@ describe('POST /tasks/:taskId', () => {
 
     expect(groupTask[0].group.assignedUsers).to.contain(member._id);
     expect(syncedTask).to.exist;
+  });
+
+  it('sends a message to the group when a user claims a task', async () => {
+    await member.post(`/tasks/${task._id}/assign/${member._id}`);
+
+    let updateGroup = await user.get(`/groups/${guild._id}`);
+
+    expect(updateGroup.chat[0].text).to.equal(t('userIsClamingTask', {username: member.profile.name, task: task.text}));
+    expect(updateGroup.chat[0].uuid).to.equal('system');
   });
 
   it('assigns a task to a user', async () => {
@@ -120,5 +129,20 @@ describe('POST /tasks/:taskId', () => {
     expect(groupTask[0].group.assignedUsers).to.contain(member2._id);
     expect(member1SyncedTask).to.exist;
     expect(member2SyncedTask).to.exist;
+  });
+
+  it('allows a manager to assign tasks', async () => {
+    await user.post(`/groups/${guild._id}/add-manager`, {
+      managerId: member2._id,
+    });
+
+    await member2.post(`/tasks/${task._id}/assign/${member._id}`);
+
+    let groupTask = await member2.get(`/tasks/group/${guild._id}`);
+    let memberTasks = await member.get('/tasks/user');
+    let syncedTask = find(memberTasks, findAssignedTask);
+
+    expect(groupTask[0].group.assignedUsers).to.contain(member._id);
+    expect(syncedTask).to.exist;
   });
 });

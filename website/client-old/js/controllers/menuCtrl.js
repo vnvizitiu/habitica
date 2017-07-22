@@ -11,9 +11,10 @@ angular.module('habitrpg')
 
       function selectNotificationValue(mysteryValue, invitationValue, cardValue, unallocatedValue, messageValue, noneValue, groupApprovalRequested, groupApproved) {
         var user = $scope.user;
+
         if (user.purchased && user.purchased.plan && user.purchased.plan.mysteryItems && user.purchased.plan.mysteryItems.length) {
           return mysteryValue;
-        } else if ((user.invitations.party && user.invitations.party.id) || (user.invitations.guilds && user.invitations.guilds.length > 0)) {
+        } else if ((user.invitations.parties && user.invitations.parties.length > 0) || (user.invitations.guilds && user.invitations.guilds.length > 0)) {
           return invitationValue;
         } else if (user.flags.cardReceived) {
           return cardValue;
@@ -22,7 +23,7 @@ angular.module('habitrpg')
         } else if (!(_.isEmpty(user.newMessages))) {
           return messageValue;
         } else if (!_.isEmpty(user.groupNotifications)) {
-          var groupNotificationTypes = _.pluck(user.groupNotifications, 'type');
+          var groupNotificationTypes = _.map(user.groupNotifications, 'type');
           if (groupNotificationTypes.indexOf('GROUP_TASK_APPROVAL') !== -1) {
             return groupApprovalRequested;
           } else if (groupNotificationTypes.indexOf('GROUP_TASK_APPROVED') !== -1) {
@@ -75,8 +76,8 @@ angular.module('habitrpg')
       $scope.getNotificationsCount = function() {
         var count = 0;
 
-        if($scope.user.invitations.party && $scope.user.invitations.party.id){
-          count++;
+        if($scope.user.invitations.parties){
+          count += $scope.user.invitations.parties.length;
         }
 
         if($scope.user.purchased.plan && $scope.user.purchased.plan.mysteryItems.length){
@@ -107,18 +108,18 @@ angular.module('habitrpg')
           'glyphicon-comment',
           'glyphicon-comment inactive',
           'glyphicon-question-sign',
-          'glyphicon glyphicon-ok-sign'
+          'glyphicon-ok-sign'
         );
       };
 
       $scope.hasNoNotifications = function() {
-        return selectNotificationValue(false, false, false, false, false, true, false);
+        return selectNotificationValue(false, false, false, false, false, true, false, false);
       };
 
-      $scope.viewGroupApprovalNotification = function (notification, $index) {
+      $scope.viewGroupApprovalNotification = function (notification, $index, navigate) {
         User.readNotification(notification.id);
         User.user.groupNotifications.splice($index, 1);
-        $state.go("options.social.guilds.detail", {gid: notification.data.groupId});
+        if (navigate) $state.go("options.social.guilds.detail", {gid: notification.data.groupId});
       };
 
       $scope.groupApprovalNotificationIcon = function (notification) {

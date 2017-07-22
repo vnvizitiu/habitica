@@ -1,9 +1,11 @@
+import moment from 'moment';
 import * as Tasks from '../models/task';
 import {
   BadRequest,
 } from './errors';
 import Bluebird from 'bluebird';
 import _ from 'lodash';
+import shared from '../../common';
 
 async function _validateTaskAlias (tasks, res) {
   let tasksWithAliases = tasks.filter(task => task.alias);
@@ -21,6 +23,36 @@ async function _validateTaskAlias (tasks, res) {
   });
 }
 
+export function setNextDue (task, user, dueDateOption) {
+  if (task.type !== 'daily') return;
+
+  let now = moment().toDate();
+  let dateTaskIsDue = Date.now();
+  if (dueDateOption) {
+    // @TODO Add required ISO format
+    dateTaskIsDue = moment(dueDateOption);
+
+    // If not time is supplied. Let's assume we want start of Custom Day Start day.
+    if (dateTaskIsDue.hour() === 0 && dateTaskIsDue.minute() === 0 && dateTaskIsDue.second() === 0 && dateTaskIsDue.millisecond() === 0) {
+      dateTaskIsDue.add(user.preferences.timezoneOffset, 'minutes');
+      dateTaskIsDue.add(user.preferences.dayStart, 'hours');
+    }
+
+    now = dateTaskIsDue;
+  }
+
+
+  let optionsForShouldDo = user.preferences.toObject();
+  optionsForShouldDo.now = now;
+  task.isDue = shared.shouldDo(dateTaskIsDue, task, optionsForShouldDo);
+  optionsForShouldDo.nextDue = true;
+  let nextDue = shared.shouldDo(dateTaskIsDue, task, optionsForShouldDo);
+  if (nextDue && nextDue.length > 0) {
+    task.nextDue = nextDue.map((dueDate) => {
+      return dueDate.toISOString();
+    });
+  }
+}
 
 /**
  * Creates tasks for a user, challenge or group.
@@ -63,6 +95,8 @@ export async function createTasks (req, res, options = {}) {
       newTask.userId = user._id;
     }
 
+    setNextDue(newTask, user);
+
     // Validate that the task is valid and throw if it isn't
     // otherwise since we're saving user/challenge/group and task in parallel it could save the user/challenge/group with a tasksOrder that doens't match reality
     let validationErrors = newTask.validateSync();
@@ -104,9 +138,12 @@ export async function getTasks (req, res, options = {}) {
     user,
     challenge,
     group,
+    dueDate,
   } = options;
 
   let query = {userId: user._id};
+  let limit;
+  let sort;
   let owner = group || challenge || user;
 
   if (challenge) {
@@ -122,18 +159,21 @@ export async function getTasks (req, res, options = {}) {
       query.completed = false; // Exclude completed todos
       query.type = 'todo';
     } else if (type === 'completedTodos' || type === '_allCompletedTodos') { // _allCompletedTodos is currently in BETA and is likely to be removed in future
-      let limit = 30;
+      limit = 30;
 
       if (type === '_allCompletedTodos') {
         limit = 0; // no limit
       }
-      query = Tasks.Task.find({
+
+      query = {
         userId: user._id,
         type: 'todo',
         completed: true,
-      }).limit(limit).sort({
+      };
+
+      sort = {
         dateCompleted: -1,
-      });
+      };
     } else {
       query.type = type.slice(0, -1); // removing the final "s"
     }
@@ -144,7 +184,17 @@ export async function getTasks (req, res, options = {}) {
     ];
   }
 
-  let tasks = await Tasks.Task.find(query).exec();
+  let mQuery = Tasks.Task.find(query);
+  if (limit) mQuery.limit(limit);
+  if (sort) mQuery.sort(sort);
+
+  let tasks = await mQuery.exec();
+
+  if (dueDate) {
+    tasks.forEach((task) => {
+      setNextDue(task, user, dueDate);
+    });
+  }
 
   // Order tasks based on tasksOrder
   if (type && type !== 'completedTodos' && type !== '_allCompletedTodos') {
@@ -175,7 +225,36 @@ export async function getTasks (req, res, options = {}) {
 export function syncableAttrs (task) {
   let t = task.toObject(); // lodash doesn't seem to like _.omit on Document
   // only sync/compare important attrs
-  let omitAttrs = ['_id', 'userId', 'challenge', 'history', 'tags', 'completed', 'streak', 'notes', 'updatedAt', 'group', 'checklist'];
+  let omitAttrs = ['_id', 'userId', 'challenge', 'history', 'tags', 'completed', 'streak', 'notes', 'updatedAt', 'createdAt', 'group', 'checklist', 'attribute'];
   if (t.type !== 'reward') omitAttrs.push('value');
   return _.omit(t, omitAttrs);
+}
+
+/**
+ * Moves a task to a specified position.
+ *
+ * @param  order  The list of ordered tasks
+ * @param  taskId  The Task._id of the task to move
+ * @param  to A integer specifiying the index to move the task to
+ *
+ * @return Empty
+ */
+export function moveTask (order, taskId, to) {
+  let currentIndex = order.indexOf(taskId);
+
+  // If for some reason the task isn't ordered (should never happen), push it in the new position
+  // if the task is moved to a non existing position
+  // or if the task is moved to position -1 (push to bottom)
+  // -> push task at end of list
+  if (!order[to] && to !== -1) {
+    order.push(taskId);
+    return;
+  }
+
+  if (currentIndex !== -1) order.splice(currentIndex, 1);
+  if (to === -1) {
+    order.push(taskId);
+  } else {
+    order.splice(to, 0, taskId);
+  }
 }

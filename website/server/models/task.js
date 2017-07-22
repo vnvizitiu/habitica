@@ -58,6 +58,7 @@ export let TaskSchema = new Schema({
   userId: {type: String, ref: 'User', validate: [validator.isUUID, 'Invalid uuid.']}, // When not set it belongs to a challenge
 
   challenge: {
+    shortName: {type: String},
     id: {type: String, ref: 'Challenge', validate: [validator.isUUID, 'Invalid uuid.']}, // When set (and userId not set) it's the original task
     taskId: {type: String, ref: 'Task', validate: [validator.isUUID, 'Invalid uuid.']}, // When not set but challenge.id defined it's the original task
     broken: {type: String, enum: ['CHALLENGE_DELETED', 'TASK_DELETED', 'UNSUBSCRIBED', 'CHALLENGE_CLOSED', 'CHALLENGE_TASK_NOT_FOUND']}, // CHALLENGE_TASK_NOT_FOUND comes from v3 migration
@@ -91,7 +92,7 @@ export let TaskSchema = new Schema({
 }, discriminatorOptions));
 
 TaskSchema.plugin(baseModel, {
-  noSet: ['challenge', 'userId', 'completed', 'history', 'dateCompleted', '_legacyId', 'group'],
+  noSet: ['challenge', 'userId', 'completed', 'history', 'dateCompleted', '_legacyId', 'group', 'isDue', 'nextDue'],
   sanitizeTransform (taskObj) {
     if (taskObj.type && taskObj.type !== 'reward') { // value should be settable directly only for rewards
       delete taskObj.value;
@@ -127,7 +128,7 @@ TaskSchema.statics.findByIdOrAlias = async function findByIdOrAlias (identifier,
 TaskSchema.statics.sanitizeUserChallengeTask = function sanitizeUserChallengeTask (taskObj) {
   let initialSanitization = this.sanitize(taskObj);
 
-  return _.pick(initialSanitization, ['streak', 'checklist', 'attribute', 'reminders', 'tags', 'notes', 'collapseChecklist', 'alias']);
+  return _.pick(initialSanitization, ['streak', 'checklist', 'attribute', 'reminders', 'tags', 'notes', 'collapseChecklist', 'alias', 'yesterDaily']);
 };
 
 // Sanitize checklist objects (disallowing id)
@@ -206,6 +207,7 @@ let dailyTodoSchema = () => {
       text: {type: String, required: false, default: ''}, // required:false because it can be empty on creation
       _id: false,
       id: {type: String, default: shared.uuid, required: true, validate: [validator.isUUID, 'Invalid uuid.']},
+      linkId: {type: String},
     }],
   };
 };
@@ -213,17 +215,21 @@ let dailyTodoSchema = () => {
 export let HabitSchema = new Schema(_.defaults({
   up: {type: Boolean, default: true},
   down: {type: Boolean, default: true},
+  counterUp: {type: Number, default: 0},
+  counterDown: {type: Number, default: 0},
+  frequency: {type: String, default: 'daily', enum: ['daily', 'weekly', 'monthly']},
 }, habitDailySchema()), subDiscriminatorOptions);
 export let habit = Task.discriminator('habit', HabitSchema);
 
 export let DailySchema = new Schema(_.defaults({
-  frequency: {type: String, default: 'weekly', enum: ['daily', 'weekly']},
+  frequency: {type: String, default: 'weekly', enum: ['daily', 'weekly', 'monthly', 'yearly']},
   everyX: {type: Number, default: 1}, // e.g. once every X weeks
   startDate: {
     type: Date,
     default () {
       return moment().startOf('day').toDate();
     },
+    required: true,
   },
   repeat: { // used only for 'weekly' frequency,
     m: {type: Boolean, default: true},
@@ -235,6 +241,11 @@ export let DailySchema = new Schema(_.defaults({
     su: {type: Boolean, default: true},
   },
   streak: {type: Number, default: 0},
+  daysOfMonth: {type: [Number], default: []}, // Days of the month that the daily should repeat on
+  weeksOfMonth: {type: [Number], default: []}, // Weeks of the month that the daily should repeat on
+  isDue: {type: Boolean},
+  nextDue: [{type: String}],
+  yesterDaily: {type: Boolean, default: true, required: true},
 }, habitDailySchema(), dailyTodoSchema()), subDiscriminatorOptions);
 export let daily = Task.discriminator('daily', DailySchema);
 

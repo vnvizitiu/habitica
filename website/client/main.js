@@ -1,50 +1,33 @@
-// TODO verify if it's needed, added because Vuex require Promise in the global scope
+// TODO verify if it's needed, added because Axios require Promise in the global scope
 // and babel-runtime doesn't affect external libraries
 require('babel-polyfill');
 
 import Vue from 'vue';
-import VueResource from 'vue-resource';
 import AppComponent from './app';
 import router from './router';
-import store from './store';
+import getStore from './store';
+import StoreModule from './libs/store';
+import './filters/registerGlobals';
+import i18n from './libs/i18n';
 
-// TODO just for the beginning
-Vue.use(VueResource);
+const IS_PRODUCTION = process.env.NODE_ENV === 'production'; // eslint-disable-line no-process-env
 
-let authSettings = localStorage.getItem('habit-mobile-settings');
+// Configure Vue global options, see https://vuejs.org/v2/api/#Global-Config
 
-if (authSettings) {
-  authSettings = JSON.parse(authSettings);
-  Vue.http.headers.common['x-api-user'] = authSettings.auth.apiId;
-  Vue.http.headers.common['x-api-key'] = authSettings.auth.apiToken;
-}
+// Enable perf timeline measuring for Vue components in Chrome Dev Tools
+// Note: this has been disabled because it caused some perf issues
+// if rendering becomes too slow in dev mode, we should turn it off
+// See https://github.com/vuejs/vue/issues/5174
+Vue.config.performance = !IS_PRODUCTION;
+// Disable annoying reminder abour production build in dev mode
+Vue.config.productionTip = IS_PRODUCTION;
 
-const app = new Vue({
+Vue.use(i18n);
+Vue.use(StoreModule);
+
+export default new Vue({
+  el: '#app',
   router,
+  store: getStore(),
   render: h => h(AppComponent),
-  mounted () { // Remove the loading screen when the app is mounted
-    let loadingScreen = document.getElementById('loading-screen');
-    if (loadingScreen) document.body.removeChild(loadingScreen);
-  },
-});
-
-// Setup listener for title
-store.watch(state => state.title, (title) => {
-  document.title = title;
-});
-
-// Mount the app when user and tasks are loaded
-let userDataWatcher = store.watch(state => [state.user, state.tasks], ([user, tasks]) => {
-  if (user && user._id && tasks && tasks.length) {
-    userDataWatcher(); // remove the watcher
-    app.$mount('#app');
-  }
-});
-
-// Load the user and the user tasks
-Promise.all([
-  store.dispatch('fetchUser'),
-  store.dispatch('fetchUserTasks'),
-]).catch(() => {
-  alert('Impossible to fetch user. Copy into localStorage a valid habit-mobile-settings object.');
 });

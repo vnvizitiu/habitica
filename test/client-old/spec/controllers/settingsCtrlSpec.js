@@ -1,7 +1,7 @@
 'use strict';
 
 describe('Settings Controller', function () {
-  var rootScope, scope, user, User, ctrl;
+  var rootScope, scope, $httpBackend, user, User, ctrl, Notification;
 
   const actionClickEvent = {
     target: document.createElement('button'),
@@ -29,18 +29,27 @@ describe('Settings Controller', function () {
         releaseBoth: sandbox.stub(),
       };
 
+      Notification = {
+        error: sandbox.stub(),
+        text: sandbox.stub()
+      };
+
+      $provide.value('Notification', Notification);
       $provide.value('User', User);
       $provide.value('Guide', sandbox.stub());
     });
 
-    inject(function(_$rootScope_, _$controller_) {
+    inject(function(_$rootScope_, _$controller_, _$httpBackend_) {
       scope = _$rootScope_.$new();
       rootScope = _$rootScope_;
+      $httpBackend = _$httpBackend_;
+
+      $httpBackend.whenGET(/partials/).respond();
 
       // Load RootCtrl to ensure shared behaviors are loaded
-      _$controller_('RootCtrl',  {$scope: scope, User: User});
+      _$controller_('RootCtrl',  {$scope: scope, User: User, Notification: Notification});
 
-      ctrl = _$controller_('SettingsCtrl', {$scope: scope, User: User});
+      ctrl = _$controller_('SettingsCtrl', {$scope: scope, User: User, Notification: Notification});
     });
   });
 
@@ -278,6 +287,80 @@ describe('Settings Controller', function () {
         expect($.fn.popover).to.be.calledWith('destroy');
         expect($.fn.popover).to.be.called;
         expect($.fn.popover).to.be.calledWith('show');
+      });
+    });
+  });
+
+  context('Validating coupons', function () {
+    describe('#applyCoupon', function () {
+      it('displays an error when an invalid coupon is applied', function () {
+        $httpBackend
+          .whenPOST('/api/v3/coupons/validate/INVALID_COUPON?userV=undefined')
+          .respond(200, {
+            success: true,
+            data: {
+              valid: false
+            },
+            notifications: [],
+            userV: 'undefined'
+          });
+
+        scope.applyCoupon('INVALID_COUPON');
+
+        $httpBackend.flush();
+
+        expect(Notification.error).to.be.called;
+        expect(Notification.error).to.be.calledWith(env.t('invalidCoupon'), true);
+      });
+
+      it('displays an confirmation when a valid coupon is applied', function () {
+        $httpBackend
+          .whenPOST('/api/v3/coupons/validate/VALID_COUPON?userV=undefined')
+          .respond(200, {
+            success: true,
+            data: {
+              valid: true
+            },
+            notifications: [],
+            userV: 'undefined'
+          });
+
+        scope.applyCoupon('VALID_COUPON');
+
+        $httpBackend.flush();
+
+        expect(Notification.error).to.not.be.called;
+        expect(Notification.text).to.be.calledWith('Coupon applied!');
+      });
+    });
+  });
+
+  context('Fixing character values', function () {
+    describe('#restore', function () {
+      var blankRestoreValues = {
+        stats: {
+          hp: 0,
+          exp: 0,
+          gp: 0,
+          lvl: 0,
+          mp: 0,
+        },
+        achievements: {
+          streak: 0,
+        },
+      };
+
+      it('doesn\'t update character values when level is less than 1', function () {
+        scope.restoreValues = blankRestoreValues;
+        scope.restore();
+        expect(User.set).to.not.be.called;
+      });
+
+      it('updates character values when level is at least 1', function () {
+        scope.restoreValues = blankRestoreValues;
+        scope.restoreValues.stats.lvl = 1;
+        scope.restore();
+        expect(User.set).to.be.called;
       });
     });
   });

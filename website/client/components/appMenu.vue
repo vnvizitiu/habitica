@@ -1,220 +1,242 @@
 <template lang="pug">
-// TODO srcset / svg images
-#app-menu.ui.top.fixed.menu
-  .header.item
-    img(src="~assets/header/png/logo@3x.png")
-  router-link.item(to="/", exact) Tasks
-  // .simple makes it possible to have a dropdown without JS
-  .ui.simple.dropdown
-    router-link.item(to="/inventory", :class="{'router-link-active': $route.path.startsWith('/inventory')}") Inventory
-    .menu
-      router-link.item(to="/inventory") Inventory
-      router-link.item(to="/inventory/stable") Stable
-      router-link.item(to="/inventory/equipment") Equipment
-  router-link.item(to="/market") Market
-  .ui.simple.dropdown
-    router-link.item(to="/social/tavern", :class="{'router-link-active': $route.path.startsWith('/social')}") Social
-    .menu
-      router-link.item(to="/social/tavern") Tavern
-      router-link.item(to="/social/inbox") Inbox
-      router-link.item(to="/social/challenges") Challenges
-      router-link.item(to="/social/party") Party
-      router-link.item(to="/social/guilds") Guilds
-  .ui.simple.dropdown
-    router-link.item(to="/help", :class="{'router-link-active': $route.path.startsWith('/help')}") Help
-    .menu
-      router-link.item(to="/help/faq") Faq
-      router-link.item(to="/help/report-bug") Report a bug
-      router-link.item(to="/help/request-feature") Request a feature
-  .right.menu
-    .item.with-img
-      img(src="~assets/header/png/gem@3x.png")
-      span {{userGems}}
-    .item.with-img.gp-icon
-      img(src="~assets/header/png/gold@3x.png")
-      span {{Math.floor(user.stats.gp * 100) / 100}}
-    a.item.with-img.notifications-dropdown
-      img(src="~assets/header/png/notifications@3x.png")
-    .ui.simple.dropdown.pointing
-      router-link.item.with-img.user-dropdown(to="/user/avatar")
-        // TODO icons should be white when active
-        img(src="~assets/header/png/user@3x.png")
-      .menu
-        .item.user-edit-avatar
-          strong {{user.profile.name}}
-          a Edit avatar
-        .divider
-        router-link.item(to="/user/stats") Stats
-        router-link.item(to="/user/achievements") Achievements
-        .divider
-        router-link.item(to="/user/settings") Settings
-        .divider
-        router-link.item(to="/logout") Logout
+div
+  inbox-modal
+  nav.navbar.navbar-inverse.fixed-top.navbar-toggleable-sm
+    .navbar-header
+      .logo.svg-icon(v-html="icons.logo")
+    .collapse.navbar-collapse
+      ul.navbar-nav.mr-auto
+        router-link.nav-item(tag="li", :to="{name: 'tasks'}", exact)
+          a.nav-link(v-once) {{ $t('tasks') }}
+        router-link.nav-item.dropdown(tag="li", :to="{name: 'items'}", :class="{'active': $route.path.startsWith('/inventory')}")
+          a.nav-link(v-once) {{ $t('inventory') }}
+          .dropdown-menu
+            router-link.dropdown-item(:to="{name: 'items'}", exact) {{ $t('items') }}
+            router-link.dropdown-item(:to="{name: 'equipment'}") {{ $t('equipment') }}
+            router-link.dropdown-item(:to="{name: 'stable'}") {{ $t('stable') }}
+        router-link.nav-item(tag="li", :to="{name: 'shops'}", exact)
+          a.nav-link(v-once) {{ $t('shops') }}
+        router-link.nav-item(tag="li", :to="{name: 'party'}")
+          a.nav-link(v-once) {{ $t('party') }}
+        router-link.nav-item.dropdown(tag="li", :to="{name: 'tavern'}", :class="{'active': $route.path.startsWith('/guilds')}")
+          a.nav-link(v-once) {{ $t('guilds') }}
+          .dropdown-menu
+            router-link.dropdown-item(:to="{name: 'tavern'}") {{ $t('tavern') }}
+            router-link.dropdown-item(:to="{name: 'myGuilds'}") {{ $t('myGuilds') }}
+            router-link.dropdown-item(:to="{name: 'guildsDiscovery'}") {{ $t('guildsDiscovery') }}
+        router-link.nav-item(tag="li", :to="{name: 'myChallenges'}", exact)
+          a.nav-link(v-once) {{ $t('challenges') }}
+        router-link.nav-item.dropdown(tag="li", to="/help", :class="{'active': $route.path.startsWith('/help')}")
+          a.nav-link(v-once) {{ $t('help') }}
+          .dropdown-menu
+            router-link.dropdown-item(:to="{name: 'faq'}") {{ $t('faq') }}
+            router-link.dropdown-item(:to="{name: 'overview'}") {{ $t('overview') }}
+            router-link.dropdown-item(to="/groups/a29da26b-37de-4a71-b0c6-48e72a900dac") {{ $t('reportBug') }}
+            router-link.dropdown-item(to="/groups/5481ccf3-5d2d-48a9-a871-70a7380cee5a") {{ $t('askAQuestion') }}
+            a.dropdown-item(href="https://trello.com/c/odmhIqyW/440-read-first-table-of-contents", target='_blank') {{ $t('requestAF') }}
+            a.dropdown-item(href="http://habitica.wikia.com/wiki/Contributing_to_Habitica", target='_blank') {{ $t('contributing') }}
+            a.dropdown-item(href="http://habitica.wikia.com/wiki", target='_blank') {{ $t('wiki') }}
+      .item-with-icon
+        .svg-icon(v-html="icons.gem")
+        span {{userGems | roundBigNumber}}
+      .item-with-icon
+        .svg-icon(v-html="icons.gold")
+        span {{user.stats.gp | roundBigNumber}}
+      .item-with-icon.item-notifications
+        .svg-icon(v-html="icons.notifications")
+      router-link.dropdown.item-with-icon.item-user(:to="{name: 'avatar'}")
+        .svg-icon(v-html="icons.user")
+        .dropdown-menu.dropdown-menu-right.user-dropdown
+          router-link.dropdown-item.edit-avatar(:to="{name: 'avatar'}")
+            h3 {{ user.profile.name }}
+            span.small-text {{ $t('editAvatar') }}
+          a.nav-link.dropdown-item(@click.prevent='showInbox()') {{ $t('inbox') }}
+          router-link.dropdown-item(:to="{name: 'backgrounds'}") {{ $t('backgrounds') }}
+          router-link.dropdown-item(:to="{name: 'stats'}") {{ $t('stats') }}
+          router-link.dropdown-item(:to="{name: 'achievements'}") {{ $t('achievements') }}
+          router-link.dropdown-item(:to="{name: 'profile'}") {{ $t('profile') }}
+          router-link.dropdown-item(:to="{name: 'site'}") {{ $t('settings') }}
+          a.nav-link.dropdown-item(to="/", @click.prevent='logout()') {{ $t('logout') }}
 </template>
 
-<style lang="less">
-#app-menu {
-  background: #432874 url(~assets/header/png/bits.png) right no-repeat;
-  border-bottom: 0px;
-  
-  .item {
-    font-size: 16px !important;
-    line-height: 1.5;
+<style lang="scss" scoped>
+  @import '~client/assets/scss/colors.scss';
+  @import '~client/assets/scss/utils.scss';
 
-    &.header {
-      width: 256px;
-      padding-left: 20px;
+  nav.navbar {
+    background: $purple-100 url(~assets/svg/for-css/bits.svg) right no-repeat;
+    padding-left: 25px;
+    padding-right: 12.5px;
+    height: 56px;
+    box-shadow: 0 1px 2px 0 rgba($black, 0.24);
+  }
 
-      img {
-        width: 128px;
-        height: 28px;
+  .navbar-header {
+    margin-right: 48px;
+
+    .logo {
+      width: 128px;
+      height: 28px;
+    }
+  }
+
+  .nav-item {
+    .nav-link {
+      font-size: 16px;
+      color: $white;
+      font-weight: bold;
+      line-height: 1.5;
+      padding: 16px 24px;
+      transition: none;
+    }
+
+    &:hover {
+      .nav-link {
+        color: $white;
+        background: $purple-200;
+      }
+    }
+
+    &.active:not(:hover) {
+      .nav-link {
+        box-shadow: 0px -4px 0px $purple-300 inset;
       }
     }
   }
-}
 
-#app-menu .item:not(.header) img {
-  vertical-align: middle;
-  width: 32px;
-  height: 32px;
-  margin: 0 auto;
-}
+  // Make the dropdown menu open on hover
+  .dropdown:hover .dropdown-menu {
+    display: block;
+    margin-top: 0; // remove the gap so it doesn't close
+  }
 
-#app-menu .right.menu .item.with-img {
-  padding-left: 0px;
-  padding-right: 0px;
-  margin-right: 20px;
-}
+  .dropdown + .dropdown {
+    margin-left: 0px;
+  }
 
-#app-menu .right.menu .item.with-img.user-dropdown, #app-menu .right.menu .item.with-img.notifications-dropdown{
-  width: 56px;
-}
+  .dropdown-menu:not(.user-dropdown) {
+    background: $purple-200;
+    border-radius: 0px;
+    border: none;
+    box-shadow: none;
+    padding: 0px;
 
-#app-menu .right.menu .item.with-img.user-dropdown, #app-menu .right.menu .item.with-img.notifications-dropdown {
-  width: 56px;
-}
+    border-bottom-right-radius: 5px;
+    border-bottom-left-radius: 5px;
 
-#app-menu .right.menu .item.with-img.notifications-dropdown {
-  margin-right: 0px;
-}
+    .dropdown-item {
+      font-size: 16px;
+      box-shadow: none;
+      color: $white;
+      border: none;
+      line-height: 1.5;
 
-#app-menu .right.menu .item.with-img.gp-icon {
-  margin-right: 40px;
-}
+      &.active {
+        background: $purple-300;
+      }
 
-#app-menu .right.menu .item.with-img img + span {
-  margin-left: 10px;
-}
+      &:hover {
+        background: $purple-300;
 
-.ui.menu .right.menu .ui.simple.dropdown > .item::before {
-  right: auto;
-  left: 0;
-}
+        &:last-child {
+          border-bottom-right-radius: 5px;
+          border-bottom-left-radius: 5px;
+        }
+      }
+    }
+  }
 
-#app-menu > .item, #app-menu > .right.menu > .item, #app-menu .dropdown > .item {
-  height: 56px;
-  font-weight: bold;
-  text-align: center;
-  padding: 16px 20px;
-  color: #fff;
-}
+  .item-with-icon {
+    color: $white;
+    font-size: 16px;
+    font-weight: normal;
+    padding-top: 16px;
+    padding-left: 16px;
 
-#app-menu > .item::before, #app-menu > .right.menu > .item::before, #app-menu .dropdown > .item::before {
-  width: 0px;
-}
+    .svg-icon {
+      vertical-align: middle;
+      width: 24px;
+      height: 24px;
+      margin-right: 8px;
+      float: left;
+    }
+  }
 
-#app-menu > .item:not(.header):hover, #app-menu > .dropdown:hover {
-  background-color: #6133b4;
-}
+  .item-notifications, .item-user {
+    padding-right: 12.5px;
+    padding-left: 12.5px;
+    color: $header-color;
+    transition: none;
 
-#app-menu > .item.router-link-active, #app-menu > .dropdown > .item.router-link-active {
-  box-shadow: 0px -4px 0px #6133b4 inset;
-}
+    &:hover {
+      color: $white;
+    }
 
-#app-menu > .dropdown > .menu {
-  border: none;
-  background-color:rgba(0, 0, 0, 0.5); // transparent
-}
+    .svg-icon {
+      margin-right: 0px;
+      color: inherit;
+    }
+  }
 
-#app-menu > .dropdown > .menu > .item:last-child {
-  border-radius: 0px 0px 4px 4px !important;
-}
+  .item-notifications {
+    margin-left: 33.5px;
+  }
 
-#app-menu > .dropdown .menu > .item {
-  /* !important to override Semantic UI's !important */
-  width: 217px;
-  background: #6133b4 !important;
-  color: #fff !important;
-  padding: 6px 0px 6px 20px !important;
-}
+  .item-user .edit-avatar {
+    h3 {
+      color: $gray-10;
+      margin-bottom: 0px;
+    }
 
-#app-menu > .dropdown .menu > .item:hover {
-  background: #4f2a93 !important; /* to override Semantic UI's !important */
-}
+    .small-text {
+      color: $gray-200;
+      font-style: normal;
+      display: block;
+    }
 
-#app-menu .ui.pointing.dropdown .menu .item {
-  padding-top: 12px !important;
-  padding-bottom: 12px !important;
-  color: #616162 !important;
-}
-
-#app-menu .ui.pointing.dropdown .menu .item {
-  padding-top: 12px !important;
-  padding-bottom: 12px !important;
-  color: #616162 !important;
-}
-
-#app-menu .ui.pointing.dropdown .menu .item:nth-child(3) {
-  padding-bottom: 8px !important;
-}
-
-#app-menu .ui.pointing.dropdown .menu .item:nth-child(4) {
-  padding-top: 8px !important;
-}
-
-#app-menu .ui.pointing.dropdown .menu {
-  width: 200px;
-  margin-right: 20px;
-  margin-top: 0px;
-}
-
-#app-menu .ui.pointing.dropdown .menu .item:hover {
-  background: #fff !important;
-  color: #6133b4 !important;
-}
-
-#app-menu .ui.pointing.dropdown > .menu::after {
-  top: -0.50em;
-  left: 85.3%;
-  width: 1em;
-  height: 1em;
-}
-
-#app-menu .ui.pointing.dropdown .divider {
-  margin: 0px;
-}
-
-#app-menu .user-edit-avatar strong, #app-menu .user-edit-avatar strong:hover {
-  color: #313131;
-  margin-top: -3px;
-  flex-grow: 1;
-  display: block;
-}
-
-#app-menu .user-edit-avatar a, #app-menu .user-edit-avatar a:hover {
-  font-size: 13px;
-  line-height: 1.23;
-  color: #6133b4;
-}
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
 </style>
 
 <script>
-import { mapState, mapGetters } from '../store';
+import { mapState, mapGetters } from 'client/libs/store';
+import gemIcon from 'assets/svg/gem.svg';
+import goldIcon from 'assets/svg/gold.svg';
+import notificationsIcon from 'assets/svg/notifications.svg';
+import userIcon from 'assets/svg/user.svg';
+import logo from 'assets/svg/logo.svg';
+import InboxModal from './userMenu/inbox.vue';
 
 export default {
+  components: {
+    InboxModal,
+  },
+  data () {
+    return {
+      icons: Object.freeze({
+        gem: gemIcon,
+        gold: goldIcon,
+        notifications: notificationsIcon,
+        user: userIcon,
+        logo,
+      }),
+    };
+  },
   computed: {
-    ...mapGetters(['userGems']),
-    ...mapState(['user']),
+    ...mapGetters({
+      userGems: 'user:gems',
+    }),
+    ...mapState({user: 'user.data'}),
+  },
+  methods: {
+    logout () {
+      localStorage.removeItem('habit-mobile-settings');
+      this.$router.go('/');
+    },
+    showInbox () {
+      this.$root.$emit('show::modal', 'inbox-modal');
+    },
   },
 };
 </script>

@@ -3,8 +3,8 @@
 var TASK_KEYS_TO_REMOVE = ['_id', 'completed', 'date', 'dateCompleted', 'history', 'id', 'streak', 'createdAt', 'challenge'];
 
 angular.module('habitrpg')
-.factory('Tasks', ['$rootScope', 'Shared', '$http',
-  function tasksFactory($rootScope, Shared, $http) {
+.factory('Tasks', ['$rootScope', 'Shared', '$http', '$modal',
+  function tasksFactory($rootScope, Shared, $http, $modal) {
     function addTasks(listDef, addTaskFn) {
       var tasks = listDef.newTask;
 
@@ -38,6 +38,18 @@ angular.module('habitrpg')
     }
 
     function saveTask (task, stayOpen, isSaveAndClose) {
+
+      // Ensure user has a repeat day selected for monthly day of the week
+      var taskIsDayOfTheWeekMonthly = task._edit.frequency === 'monthly' && task._edit.repeatsOn == 'dayOfWeek';
+      var repeats = _.values(task._edit.repeat);
+      var repeatHasTrueDay = _.find(repeats, function (item) {
+        return item === true;
+      });
+      if (taskIsDayOfTheWeekMonthly && !repeatHasTrueDay) {
+        alert(env.t('repeatDayError'));
+        return;
+      }
+
       if (task._edit) {
         angular.copy(task._edit, task);
       }
@@ -144,10 +156,13 @@ angular.module('habitrpg')
       });
     };
 
-    function scoreTask (taskId, direction) {
+    function scoreTask (taskId, direction, body) {
+      if (!body) body = {};
+
       return $http({
         method: 'POST',
         url: '/api/v3/tasks/' + taskId + '/score/' + direction,
+        data: body,
       });
     };
 
@@ -155,6 +170,13 @@ angular.module('habitrpg')
       return $http({
         method: 'POST',
         url: '/api/v3/tasks/' + taskId + '/move/to/' + position,
+      });
+    };
+
+    function moveGroupTask (taskId, position) {
+      return $http({
+        method: 'POST',
+        url: '/api/v3/group-tasks/' + taskId + '/move/to/' + position,
       });
     };
 
@@ -245,12 +267,157 @@ angular.module('habitrpg')
       });
     };
 
-    function editTask(task, user) {
-      task._editing = true;
-      task._tags = !user.preferences.tagsCollapsed;
-      task._advanced = !user.preferences.advancedCollapsed;
-      task._edit = angular.copy(task);
+    function editTask(task, user, taskStatus, scopeInc) {
+      // @TODO: This should be it's own controller. And methods should be abstracted form the three task ctrls to a directive/ctrl
+      var modalScope = $rootScope.$new();
+      modalScope.task = task;
+      modalScope.task._editing = true;
+      modalScope.task._tags = !user.preferences.tagsCollapsed;
+      modalScope.task._advanced = !user.preferences.advancedCollapsed;
+      modalScope.task._edit = angular.copy(task);
+      modalScope.user = user;
       if($rootScope.charts[task._id]) $rootScope.charts[task.id] = false;
+
+      modalScope.taskStatus = taskStatus;
+      if (scopeInc) {
+        modalScope.saveTask = scopeInc.saveTask;
+        modalScope.addChecklist = scopeInc.addChecklist;
+        modalScope.addChecklistItem = scopeInc.addChecklistItem;
+        modalScope.removeChecklistItem = scopeInc.removeChecklistItem;
+        modalScope.swapChecklistItems = scopeInc.swapChecklistItems;
+        modalScope.navigateChecklist = scopeInc.navigateChecklist;
+        modalScope.checklistCompletion = scopeInc.checklistCompletion;
+        modalScope.canEdit = scopeInc.canEdit;
+        modalScope.updateTaskTags = scopeInc.updateTaskTags;
+        modalScope.obj = scopeInc.obj;
+        modalScope.unlink = scopeInc.unlink;
+        modalScope.removeTask = scopeInc.removeTask;
+      }
+      modalScope.cancelTaskEdit = cancelTaskEdit;
+
+      modalScope.task._edit.repeatsOn = 'dayOfMonth';
+      if (modalScope.task.type === 'daily' && modalScope.task._edit.weeksOfMonth && modalScope.task._edit.weeksOfMonth.length > 0) {
+        modalScope.task._edit.repeatsOn = 'dayOfWeek';
+      }
+
+      $modal.open({
+        scope: modalScope,
+        templateUrl: 'modals/task-edit.html',
+        controller: ['$scope', function ($scope) {
+          $scope.$watch('task._edit', function (newValue, oldValue) {
+            if ($scope.task.type !== 'daily' || !task._edit) return;
+            $scope.summary = generateSummary($scope.task);
+            $scope.nextDue = generateNextDue($scope.task._edit, $scope.user);
+
+            $scope.repeatSuffix = generateRepeatSuffix($scope.task);
+            if (task._edit.frequency === 'monthly' && $scope.task._edit.repeatsOn == 'dayOfMonth') {
+              var date = moment(task._edit.startDate).date();
+              $scope.task._edit.weeksOfMonth = [];
+              $scope.task._edit.daysOfMonth = [date]; // @TODO This can handle multiple dates later
+            } else if (task._edit.frequency === 'monthly' && $scope.task._edit.repeatsOn == 'dayOfWeek') {
+              var week = Math.ceil(moment(task._edit.startDate).date() / 7) - 1;
+              var dayOfWeek = moment(task._edit.startDate).day();
+              var shortDay = numberToShortDay[dayOfWeek];
+              $scope.task._edit.daysOfMonth = [];
+              $scope.task._edit.weeksOfMonth = [week]; // @TODO: This can handle multiple weeks
+              for (var key in $scope.task._edit.repeat) {
+                $scope.task._edit.repeat[key] = false;
+              }
+              $scope.task._edit.repeat[shortDay] = true;
+            }
+          }, true);
+        }],
+      })
+      .result.catch(function() {
+        cancelTaskEdit(task);
+      });
+    }
+
+    /*
+     * Summary
+     */
+
+    var frequencyMap = {
+      'daily': 'days',
+      'weekly': 'weeks',
+      'monthly': 'months',
+      'yearly': 'years',
+    };
+
+    var shortDayToLongDayMap = {
+      'su': moment().day(0).format('dddd'),
+      's': moment().day(6).format('dddd'),
+      'f': moment().day(5).format('dddd'),
+      'th': moment().day(4).format('dddd'),
+      'w': moment().day(3).format('dddd'),
+      't': moment().day(2).format('dddd'),
+      'm': moment().day(1).format('dddd'),
+    };
+
+    var numberToShortDay = Shared.DAY_MAPPING;
+
+    function generateSummary(task) {
+      if (task._edit.everyX === 0) 
+        return window.env.t('repeatZero');
+      
+      var frequencyPlural = frequencyMap[task._edit.frequency];
+
+      var repeatDays = '';
+      for (var key in task._edit.repeat) {
+        if (task._edit.repeat[key]) {
+          repeatDays += shortDayToLongDayMap[key] + ', ';
+        }
+      }
+
+      var summary = window.env.t('summaryStart', {
+        frequency: task._edit.frequency,
+        everyX: task._edit.everyX,
+        frequencyPlural: frequencyPlural,
+      });
+
+      if (task._edit.frequency === 'weekly') summary += ' on ' + repeatDays;
+
+      if (task._edit.frequency === 'monthly' && task._edit.repeatsOn == 'dayOfMonth') {
+        var date = moment(task._edit.startDate).date();
+        summary += ' on the ' + date;
+      } else if (task._edit.frequency === 'monthly' && task._edit.repeatsOn == 'dayOfWeek') {
+        var week = Math.ceil(moment(task._edit.startDate).date() / 7) - 1;
+        var dayOfWeek = moment(task._edit.startDate).day();
+        var shortDay = numberToShortDay[dayOfWeek];
+        var longDay = shortDayToLongDayMap[shortDay];
+
+        summary += ' on the ' + (week + 1) + ' ' + longDay;
+      }
+
+      return summary;
+    }
+
+    function generateRepeatSuffix (task) {
+      if (task._edit.frequency === 'daily') {
+        return task._edit.everyX == 1 ? window.env.t('day') : window.env.t('days');
+      } else if (task._edit.frequency === 'weekly') {
+        return task._edit.everyX == 1 ? window.env.t('week') : window.env.t('weeks');
+      } else if (task._edit.frequency === 'monthly') {
+        return task._edit.everyX == 1 ? window.env.t('month') : window.env.t('months');
+      } else if (task._edit.frequency === 'yearly') {
+        return task._edit.everyX == 1 ? window.env.t('year') : window.env.t('years');
+      }
+    };
+
+    function generateNextDue (task, user) {
+      var options = angular.copy(user);
+      options.nextDue = true;
+      var nextDueDates = Shared.shouldDo(new Date, task, options);
+      if (!nextDueDates) return '';
+
+      var dateFormat = 'MM-DD-YYYY';
+      if (user.preferences.dateFormat) dateFormat = user.preferences.dateFormat.toUpperCase();
+      var nextDueDatesArr = angular.isArray(nextDueDates) ? nextDueDates : [];
+      var nextDue = nextDueDatesArr.map(function (date) {
+        return date.format(dateFormat);
+      });
+
+      return nextDue.join(', ');
     }
 
     function cancelTaskEdit(task) {
@@ -272,7 +439,7 @@ angular.module('habitrpg')
       _(cleansedTask.checklist).forEach(function(item) {
         item.completed = false;
         item.id = Shared.uuid();
-      }).value();
+      });
 
       if (cleansedTask.type !== 'reward') {
         delete cleansedTask.value;
@@ -289,7 +456,7 @@ angular.module('habitrpg')
 
     function focusChecklist(task, index) {
       window.setTimeout(function(){
-        $('#task-'+task._id+' .checklist-form input[type="text"]')[index].focus();
+        $('#task-' + task._id + ' .checklist-form input[type="text"]')[index].focus();
       });
     }
 
@@ -384,5 +551,6 @@ angular.module('habitrpg')
 
       getGroupApprovals: getGroupApprovals,
       approve: approve,
+      moveGroupTask: moveGroupTask,
     };
   }]);
