@@ -1,6 +1,8 @@
 <template lang="pug">
 div
   inbox-modal
+  creator-intro
+  profile
   nav.navbar.navbar-inverse.fixed-top.navbar-toggleable-sm
     .navbar-header
       .logo.svg-icon(v-html="icons.logo")
@@ -14,9 +16,16 @@ div
             router-link.dropdown-item(:to="{name: 'items'}", exact) {{ $t('items') }}
             router-link.dropdown-item(:to="{name: 'equipment'}") {{ $t('equipment') }}
             router-link.dropdown-item(:to="{name: 'stable'}") {{ $t('stable') }}
-        router-link.nav-item(tag="li", :to="{name: 'shops'}", exact)
+        router-link.nav-item.dropdown(tag="li", :to="{name: 'market'}", :class="{'active': $route.path.startsWith('/shop')}")
           a.nav-link(v-once) {{ $t('shops') }}
-        router-link.nav-item(tag="li", :to="{name: 'party'}")
+          .dropdown-menu
+            router-link.dropdown-item(:to="{name: 'market'}", exact) {{ $t('market') }}
+            router-link.dropdown-item(:to="{name: 'quests'}") {{ $t('quests') }}
+            router-link.dropdown-item(:to="{name: 'seasonal'}") {{ $t('titleSeasonalShop') }}
+            router-link.dropdown-item(:to="{name: 'time'}") {{ $t('titleTimeTravelers') }}
+        router-link.nav-item(tag="li", :to="{name: 'party'}", v-if='this.user.party._id')
+          a.nav-link(v-once) {{ $t('party') }}
+        .nav-item(@click='openPartyModal()', v-if='!this.user.party._id')
           a.nav-link(v-once) {{ $t('party') }}
         router-link.nav-item.dropdown(tag="li", :to="{name: 'tavern'}", :class="{'active': $route.path.startsWith('/guilds')}")
           a.nav-link(v-once) {{ $t('guilds') }}
@@ -24,37 +33,46 @@ div
             router-link.dropdown-item(:to="{name: 'tavern'}") {{ $t('tavern') }}
             router-link.dropdown-item(:to="{name: 'myGuilds'}") {{ $t('myGuilds') }}
             router-link.dropdown-item(:to="{name: 'guildsDiscovery'}") {{ $t('guildsDiscovery') }}
-        router-link.nav-item(tag="li", :to="{name: 'myChallenges'}", exact)
+        router-link.nav-item.dropdown(tag="li", :to="{name: 'groupPlan'}", :class="{'active': $route.path.startsWith('/group-plans')}")
+          a.nav-link(v-once) {{ $t('group') }}
+          .dropdown-menu
+            router-link.dropdown-item(v-for='group in groupPlans', :key='group._id', :to="{name: 'groupPlanDetailTaskInformation', params: {groupId: group._id}}") {{ group.name }}
+        router-link.nav-item.dropdown(tag="li", :to="{name: 'myChallenges'}", :class="{'active': $route.path.startsWith('/challenges')}")
           a.nav-link(v-once) {{ $t('challenges') }}
-        router-link.nav-item.dropdown(tag="li", to="/help", :class="{'active': $route.path.startsWith('/help')}")
+          .dropdown-menu
+            router-link.dropdown-item(:to="{name: 'myChallenges'}") {{ $t('myChallenges') }}
+            router-link.dropdown-item(:to="{name: 'findChallenges'}") {{ $t('findChallenges') }}
+        router-link.nav-item.dropdown(tag="li", to="/help", :class="{'active': $route.path.startsWith('/help')}", :to="{name: 'faq'}")
           a.nav-link(v-once) {{ $t('help') }}
           .dropdown-menu
             router-link.dropdown-item(:to="{name: 'faq'}") {{ $t('faq') }}
             router-link.dropdown-item(:to="{name: 'overview'}") {{ $t('overview') }}
-            router-link.dropdown-item(to="/groups/a29da26b-37de-4a71-b0c6-48e72a900dac") {{ $t('reportBug') }}
-            router-link.dropdown-item(to="/groups/5481ccf3-5d2d-48a9-a871-70a7380cee5a") {{ $t('askAQuestion') }}
+            router-link.dropdown-item(to="/groups/guild/a29da26b-37de-4a71-b0c6-48e72a900dac") {{ $t('reportBug') }}
+            router-link.dropdown-item(to="/groups/guild/5481ccf3-5d2d-48a9-a871-70a7380cee5a") {{ $t('askAQuestion') }}
             a.dropdown-item(href="https://trello.com/c/odmhIqyW/440-read-first-table-of-contents", target='_blank') {{ $t('requestAF') }}
             a.dropdown-item(href="http://habitica.wikia.com/wiki/Contributing_to_Habitica", target='_blank') {{ $t('contributing') }}
-            a.dropdown-item(href="http://habitica.wikia.com/wiki", target='_blank') {{ $t('wiki') }}
+            a.dropdown-item(href="http://habitica.wikia.com/wiki/Habitica_Wiki", target='_blank') {{ $t('wiki') }}
+      .item-with-icon(v-if="userHourglasses != 0")
+        .svg-icon(v-html="icons.hourglasses")
+        span {{ userHourglasses }}
       .item-with-icon
-        .svg-icon(v-html="icons.gem")
+        .svg-icon.gem(v-html="icons.gem", @click='showBuyGemsModal()')
         span {{userGems | roundBigNumber}}
       .item-with-icon
         .svg-icon(v-html="icons.gold")
-        span {{user.stats.gp | roundBigNumber}}
-      .item-with-icon.item-notifications
-        .svg-icon(v-html="icons.notifications")
-      router-link.dropdown.item-with-icon.item-user(:to="{name: 'avatar'}")
-        .svg-icon(v-html="icons.user")
+        span {{Math.floor(user.stats.gp * 100) / 100}}
+      notification-menu
+      a.dropdown.item-with-icon.item-user
+        .svg-icon.user(v-html="icons.user")
         .dropdown-menu.dropdown-menu-right.user-dropdown
-          router-link.dropdown-item.edit-avatar(:to="{name: 'avatar'}")
+          a.dropdown-item.edit-avatar.dropdown-separated(@click='showAvatar()')
             h3 {{ user.profile.name }}
             span.small-text {{ $t('editAvatar') }}
-          a.nav-link.dropdown-item(@click.prevent='showInbox()') {{ $t('inbox') }}
-          router-link.dropdown-item(:to="{name: 'backgrounds'}") {{ $t('backgrounds') }}
-          router-link.dropdown-item(:to="{name: 'stats'}") {{ $t('stats') }}
-          router-link.dropdown-item(:to="{name: 'achievements'}") {{ $t('achievements') }}
-          router-link.dropdown-item(:to="{name: 'profile'}") {{ $t('profile') }}
+          a.nav-link.dropdown-item(@click.prevent='showInbox()') {{ $t('messages') }}
+          a.dropdown-item(@click='showAvatar("backgrounds", "2017")') {{ $t('backgrounds') }}
+          a.dropdown-item(@click='showProfile("stats")') {{ $t('stats') }}
+          a.dropdown-item(@click='showProfile("achievements")') {{ $t('achievements') }}
+          a.dropdown-item(@click='showProfile("profile")') {{ $t('profile') }}
           router-link.dropdown-item(:to="{name: 'site'}") {{ $t('settings') }}
           a.nav-link.dropdown-item(to="/", @click.prevent='logout()') {{ $t('logout') }}
 </template>
@@ -114,6 +132,10 @@ div
     margin-left: 0px;
   }
 
+  .dropdown-separated {
+    border-bottom: 1px solid $gray-500;
+  }
+
   .dropdown-menu:not(.user-dropdown) {
     background: $purple-200;
     border-radius: 0px;
@@ -154,11 +176,12 @@ div
     padding-left: 16px;
 
     .svg-icon {
-      vertical-align: middle;
-      width: 24px;
-      height: 24px;
+      vertical-align: bottom;
+      display: inline-block;
+      width: 20px;
+      height: 20px;
       margin-right: 8px;
-      float: left;
+      margin-left: 8px;
     }
   }
 
@@ -168,18 +191,14 @@ div
     color: $header-color;
     transition: none;
 
-    &:hover {
-      color: $white;
-    }
-
     .svg-icon {
       margin-right: 0px;
-      color: inherit;
-    }
-  }
+      color: $header-color;
 
-  .item-notifications {
-    margin-left: 33.5px;
+      &:hover {
+        color: $white;
+      }
+    }
   }
 
   .item-user .edit-avatar {
@@ -197,45 +216,80 @@ div
     padding-top: 16px;
     padding-bottom: 16px;
   }
+
+  .gem:hover {
+    cursor: pointer;
+  }
 </style>
 
 <script>
 import { mapState, mapGetters } from 'client/libs/store';
 import gemIcon from 'assets/svg/gem.svg';
 import goldIcon from 'assets/svg/gold.svg';
-import notificationsIcon from 'assets/svg/notifications.svg';
 import userIcon from 'assets/svg/user.svg';
+import svgHourglasses from 'assets/svg/hourglass.svg';
 import logo from 'assets/svg/logo.svg';
 import InboxModal from './userMenu/inbox.vue';
+import notificationMenu from './notificationMenu';
+import creatorIntro from './creatorIntro';
+import profile from './userMenu/profile';
 
 export default {
   components: {
     InboxModal,
+    notificationMenu,
+    creatorIntro,
+    profile,
   },
   data () {
     return {
       icons: Object.freeze({
         gem: gemIcon,
         gold: goldIcon,
-        notifications: notificationsIcon,
         user: userIcon,
+        hourglasses: svgHourglasses,
         logo,
       }),
+      groupPlans: [],
     };
   },
   computed: {
     ...mapGetters({
       userGems: 'user:gems',
     }),
-    ...mapState({user: 'user.data'}),
+    ...mapState({
+      user: 'user.data',
+      userHourglasses: 'user.data.purchased.plan.consecutive.trinkets',
+    }),
+  },
+  mounted () {
+    this.getUserGroupPlans();
   },
   methods: {
     logout () {
-      localStorage.removeItem('habit-mobile-settings');
-      this.$router.go('/');
+      this.$store.dispatch('auth:logout');
     },
     showInbox () {
       this.$root.$emit('show::modal', 'inbox-modal');
+    },
+    showAvatar (startingPage, subpage) {
+      this.$store.state.avatarEditorOptions.editingUser = true;
+      this.$store.state.avatarEditorOptions.startingPage = startingPage;
+      this.$store.state.avatarEditorOptions.subpage = subpage;
+      this.$root.$emit('show::modal', 'avatar-modal');
+    },
+    showProfile (startingPage) {
+      this.$store.state.profileOptions.startingPage = startingPage;
+      this.$root.$emit('show::modal', 'profile');
+    },
+    async getUserGroupPlans () {
+      this.groupPlans = await this.$store.dispatch('guilds:getGroupPlans');
+    },
+    openPartyModal () {
+      this.$root.$emit('show::modal', 'create-party-modal');
+    },
+    showBuyGemsModal () {
+      this.$root.$emit('show::modal', 'buy-gems');
     },
   },
 };

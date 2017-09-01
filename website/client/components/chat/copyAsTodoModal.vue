@@ -17,7 +17,7 @@
               | &nbsp;
 
         div.task-text
-          markdown(text='text',target='_blank')
+          div(v-markdown='text', target='_blank')
 
     .modal-footer
       button.btn.btn-default(@click='close()') {{ $t('close') }}
@@ -26,10 +26,14 @@
 
 <script>
 import bModal from 'bootstrap-vue/lib/components/modal';
+import markdownDirective from 'client/directives/markdown';
 
 export default {
   components: {
     bModal,
+  },
+  directives: {
+    markdown: markdownDirective,
   },
   props: ['copyingMessage', 'groupName', 'groupId'],
   data () {
@@ -42,7 +46,7 @@ export default {
     copyingMessage () {
       this.text = this.copyingMessage.text;
       let baseUrl = 'https://habitica.com';
-      this.notes = `[${this.copyingMessage.user}](${baseUrl}/static/front/#?memberId=${this.copyingMessage.uuid}) wrote in [${this.groupName}](${baseUrl}/#/options/groups/${this.groupId})`;
+      this.notes = `[${this.copyingMessage.user}](${baseUrl}/home/#?memberId=${this.copyingMessage.uuid}) wrote in [${this.groupName}](${baseUrl}/#/options/groups/${this.groupId})`;
     },
   },
   methods: {

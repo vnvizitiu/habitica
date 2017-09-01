@@ -33,6 +33,29 @@ api.getMarketItems = {
 
 /**
  * @apiIgnore
+ * @api {get} /api/v3/shops/market-gear get the available gear for the market
+ * @apiName GetMarketGear
+ * @apiGroup Shops
+ *
+ * @apiSuccess {Object} data List of available gear
+ */
+api.getMarketGear = {
+  method: 'GET',
+  url: '/shops/market-gear',
+  middlewares: [authWithHeaders()],
+  async handler (req, res) {
+    let user = res.locals.user;
+
+    let resObject = {
+      categories: shops.getMarketGearCategories(user, req.language),
+    };
+
+    res.respond(200, resObject);
+  },
+};
+
+/**
+ * @apiIgnore
  * @api {get} /api/v3/shops/quests get the available items for the quests shop
  * @apiName GetQuestShopItems
  * @apiGroup Shops
@@ -107,8 +130,9 @@ api.getSeasonalShopItems = {
     let resObject = {
       identifier: 'seasonalShop',
       text: res.t('seasonalShop'),
-      notes: res.t('seasonalShopSummerText'),
-      imageName: 'seasonalshop_open',
+      notes: res.t('seasonalShopClosedText'),
+      imageName: 'seasonalshop_closed',
+      opened: false,
       categories: shops.getSeasonalShopCategories(user, req.language),
     };
 

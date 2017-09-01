@@ -40,6 +40,7 @@ export const TAVERN_ID = shared.TAVERN_ID;
 
 const NO_CHAT_NOTIFICATIONS = [TAVERN_ID];
 const LARGE_GROUP_COUNT_MESSAGE_CUTOFF = shared.constants.LARGE_GROUP_COUNT_MESSAGE_CUTOFF;
+const MAX_SUMMARY_SIZE_FOR_GUILDS = shared.constants.MAX_SUMMARY_SIZE_FOR_GUILDS;
 const GUILDS_PER_PAGE = shared.constants.GUILDS_PER_PAGE;
 
 const CRON_SAFE_MODE = nconf.get('CRON_SAFE_MODE') === 'true';
@@ -58,6 +59,7 @@ export const SPAM_MIN_EXEMPT_CONTRIB_LEVEL = 4;
 
 export let schema = new Schema({
   name: {type: String, required: true},
+  summary: {type: String, maxlength: MAX_SUMMARY_SIZE_FOR_GUILDS},
   description: String,
   leader: {type: String, ref: 'User', validate: [validator.isUUID, 'Invalid uuid.'], required: true},
   type: {type: String, enum: ['guild', 'party'], required: true},
@@ -120,6 +122,10 @@ export let schema = new Schema({
   managers: {type: Schema.Types.Mixed, default: () => {
     return {};
   }},
+  categories: [{
+    slug: {type: String},
+    name: {type: String},
+  }],
 }, {
   strict: true,
   minimize: false, // So empty objects are returned
@@ -133,6 +139,24 @@ schema.plugin(baseModel, {
   },
 });
 
+schema.pre('init', function ensureSummaryIsFetched (next, group) {
+  // The Vue website makes the summary be mandatory for all new groups, but the
+  // Angular website did not, and the API does not yet for backwards-compatibilty.
+  // When any public guild without a summary is fetched from the database, this code
+  // supplies the name as the summary. This can be removed when all public guilds have
+  // a summary and the API makes it mandatory (a breaking change!)
+  // NOTE: these groups do NOT need summaries: Tavern, private guilds, parties
+  // ALSO NOTE: it's possible for a private guild to become public and vice versa when
+  // a guild owner requests it of an admin so that must be taken into account
+  // when making the summary mandatory - process for changing privacy:
+  // http://habitica.wikia.com/wiki/Guilds#Changing_a_Guild_from_Private_to_Public_or_Public_to_Private
+  // Maybe because of that we'd want to keep this code here forever. @TODO: think about that.
+  if (!group.summary) {
+    group.summary = group.name ? group.name.substring(0, MAX_SUMMARY_SIZE_FOR_GUILDS) : ' ';
+  }
+  next();
+});
+
 // A list of additional fields that cannot be updated (but can be set on creation)
 let noUpdate = ['privacy', 'type'];
 schema.statics.sanitizeUpdate = function sanitizeUpdate (updateObj) {
@@ -140,7 +164,7 @@ schema.statics.sanitizeUpdate = function sanitizeUpdate (updateObj) {
 };
 
 // Basic fields to fetch for populating a group info
-export let basicFields = 'name type privacy leader';
+export let basicFields = 'name type privacy leader summary';
 
 schema.pre('remove', true, async function preRemoveGroup (next, done) {
   next();
@@ -225,6 +249,7 @@ schema.statics.getGroups = async function getGroups (options = {}) {
     user, types, groupFields = basicFields,
     sort = '-memberCount', populateLeader = false,
     paginate = false, page = 0, // optional pagination for public guilds
+    filters = {},
   } = options;
   let queries = [];
 
@@ -239,21 +264,25 @@ schema.statics.getGroups = async function getGroups (options = {}) {
         break;
       }
       case 'guilds': {
-        let userGuildsQuery = this.find({
+        let query = {
           type: 'guild',
           _id: {$in: user.guilds},
-        }).select(groupFields);
+        };
+        _.assign(query, filters);
+        let userGuildsQuery = this.find(query).select(groupFields);
         if (populateLeader === true) userGuildsQuery.populate('leader', nameFields);
         userGuildsQuery.sort(sort).exec();
         queries.push(userGuildsQuery);
         break;
       }
       case 'privateGuilds': {
-        let privateGuildsQuery = this.find({
+        let query = {
           type: 'guild',
           privacy: 'private',
           _id: {$in: user.guilds},
-        }).select(groupFields);
+        };
+        _.assign(query, filters);
+        let privateGuildsQuery = this.find(query).select(groupFields);
         if (populateLeader === true) privateGuildsQuery.populate('leader', nameFields);
         privateGuildsQuery.sort(sort).exec();
         queries.push(privateGuildsQuery);
@@ -262,10 +291,12 @@ schema.statics.getGroups = async function getGroups (options = {}) {
       // NOTE: when returning publicGuilds we use `.lean()` so all mongoose methods won't be available.
       // Docs are going to be plain javascript objects
       case 'publicGuilds': {
-        let publicGuildsQuery = this.find({
+        let query = {
           type: 'guild',
           privacy: 'public',
-        }).select(groupFields);
+        };
+        _.assign(query, filters);
+        let publicGuildsQuery = this.find(query).select(groupFields);
         if (populateLeader === true) publicGuildsQuery.populate('leader', nameFields);
         if (paginate === true) publicGuildsQuery.limit(GUILDS_PER_PAGE).skip(page * GUILDS_PER_PAGE);
         publicGuildsQuery.sort(sort).lean().exec();
@@ -308,7 +339,7 @@ schema.statics.toJSONCleanChat = function groupToJSONCleanChat (group, user) {
 };
 
 /**
- * Checks inivtation uuids and emails for possible errors.
+ * Checks invitation uuids and emails for possible errors.
  *
  * @param  uuids  An array of user ids
  * @param  emails  An array of emails

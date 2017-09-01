@@ -4,9 +4,9 @@
     input.form-control.search(type="text", :placeholder="$t('search')", v-model='searchTerm')
 
   form
-    h3(v-once) {{ $t('filter') }}
+    h2(v-once) {{ $t('filter') }}
     .form-group
-      h5 Category
+      h3 Category
       .form-check(
         v-for="group in categoryOptions",
         :key="group.key",
@@ -16,7 +16,7 @@
           span.custom-control-indicator
           span.custom-control-description(v-once) {{ $t(group.label) }}
     .form-group
-      h5 Membership
+      h3 Membership
       .form-check(
         v-for="group in roleOptions",
         :key="group.key",
@@ -26,13 +26,13 @@
           span.custom-control-indicator
           span.custom-control-description(v-once) {{ $t(group.label) }}
     .form-group
-      h5 Guild Size
+      h3 Ownership
       .form-check(
-        v-for="group in guildSizeOptions",
+        v-for="group in ownershipOptions",
         :key="group.key",
       )
         label.custom-control.custom-checkbox
-          input.custom-control-input(type="checkbox", :value='group.key' v-model="guildSizeFilters")
+          input.custom-control-input(type="checkbox", :value='group.key' v-model="ownershipFilters")
           span.custom-control-indicator
           span.custom-control-description(v-once) {{ $t(group.label) }}
 </template>
@@ -46,52 +46,60 @@ export default {
       categoryFilters: [],
       categoryOptions: [
         {
-          label: 'habiticaOfficial',
-          key: 'official',
+          label: 'habitica_official',
+          key: 'habitica_official',
         },
         {
-          label: 'animals',
-          key: 'animals',
+          label: 'academics',
+          key: 'academics',
         },
         {
-          label: 'artDesign',
-          key: 'art_design',
+          label: 'advocacy_causes',
+          key: 'advocacy_causes',
         },
         {
-          label: 'booksWriting',
-          key: 'books_writing',
+          label: 'creativity',
+          key: 'creativity',
         },
         {
-          label: 'comicsHobbies',
-          key: 'comics_hobbies',
+          label: 'entertainment',
+          key: 'entertainment',
         },
         {
-          label: 'diyCrafts',
-          key: 'diy_crafts',
+          label: 'finance',
+          key: 'finance',
         },
         {
-          label: 'education',
-          key: 'education',
-        },
-        {
-          label: 'foodCooking',
-          key: 'food_cooking',
-        },
-        {
-          label: 'healthFitness',
+          label: 'health_fitness',
           key: 'health_fitness',
         },
         {
-          label: 'music',
-          key: 'music',
+          label: 'hobbies_occupations',
+          key: 'hobbies_occupations',
         },
         {
-          label: 'relationship',
-          key: 'relationship',
+          label: 'location_based',
+          key: 'location_based',
         },
         {
-          label: 'scienceTech',
-          key: 'science_tech ',
+          label: 'mental_health',
+          key: 'mental_health ',
+        },
+        {
+          label: 'getting_organized',
+          key: 'getting_organized ',
+        },
+        {
+          label: 'self_improvement',
+          key: 'self_improvement ',
+        },
+        {
+          label: 'spirituality',
+          key: 'spirituality ',
+        },
+        {
+          label: 'time_management',
+          key: 'time_management',
         },
       ],
       roleFilters: [],
@@ -104,13 +112,13 @@ export default {
           label: 'not_participating',
           key: 'not_participating',
         },
-        {
-          label: 'either',
-          key: 'either',
-        },
+        // {
+        //   label: 'either',
+        //   key: 'either',
+        // },
       ],
-      guildSizeFilters: [],
-      guildSizeOptions: [
+      ownershipFilters: [],
+      ownershipOptions: [
         {
           label: 'owned',
           key: 'owned',
@@ -119,10 +127,10 @@ export default {
           label: 'not_owned',
           key: 'not_owned',
         },
-        {
-          label: 'either',
-          key: 'either',
-        },
+        // {
+        //   label: 'either',
+        //   key: 'either',
+        // },
       ],
       searchTerm: '',
     };
@@ -134,7 +142,7 @@ export default {
     roleFilters: function roleFilters () {
       this.emitFilters();
     },
-    guildSizeFilters: function guildSizeFilters () {
+    ownershipFilters: function ownershipFilters () {
       this.emitFilters();
     },
     searchTerm: throttle(function searchTerm (newSearch) {
@@ -148,7 +156,7 @@ export default {
       this.$emit('filter', {
         categories: this.categoryFilters,
         roles: this.roleFilters,
-        guildSize: this.guildSizeFilters,
+        ownership: this.ownershipFilters,
       });
     },
   },

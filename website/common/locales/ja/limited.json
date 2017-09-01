@@ -26,7 +26,7 @@
     "jackolantern": "ジャック･オ･ランタン",
     "ghostJackolantern": "ジャック・オ・ランタンのお化け",
     "seasonalShop": "季節の店",
-    "seasonalShopClosedTitle": "<%= linkStart %>レズリー<%= linkEnd %>",
+    "seasonalShopClosedTitle": "<%= linkStart %>Leslie<%= linkEnd %>",
     "seasonalShopTitle": "<%= linkStart %>季節の魔女<%= linkEnd %>",
     "seasonalShopClosedText": "季節の店は、現在閉店しています!!　いまどこに季節の魔女がいるのかはわかりませんが、きっと、次の<a href='http://habitica.wikia.com/wiki/Grand_Galas' target='_blank'>大祭</a>の間には、戻ってくるでしょう!",
     "seasonalShopText": "季節の店へようこそ!! ただいま春の<a href='http://habitica.wikia.com/wiki/Item_Availability' target='_blank'>季節限定版</a>商品をとりそろえております。ここにあるものはすべて年に 1 度の春の元気なダンス イベント期間中にお買い上げいただけますが、4月30日までしかオープンしていませんのでこの期間を逃しますと、また 1 年お待ちいただくことになりますよ!",
@@ -71,7 +71,7 @@
     "monsterOfScienceSet": "科学のモンスター (戦士)",
     "witchyWizardSet": "魔女のような魔法使い (魔道士)",
     "mummyMedicSet": "ミイラの衛生兵 (治療師)",
-    "vampireSmiterSet": "吸血鬼のボクサー (盗賊)",
+    "vampireSmiterSet": "吸血鬼ハンター (盗賊)",
     "bewareDogSet": "注意すべき猛犬 (戦士)",
     "magicianBunnySet": "魔術師のウサギ (魔道士)",
     "comfortingKittySet": "くつろいだネコ (治療師)",
@@ -101,7 +101,7 @@
     "winter2017SugarPlumSet": "シュガープラムの治療師(治療師)",
     "winter2017FrostyRogueSet": "銀霜の盗賊(盗賊)",
     "spring2017FelineWarriorSet": "ネコの戦士 (戦士)",
-    "spring2017CanineConjurorSet": "イヌの魔導士 (魔道士)",
+    "spring2017CanineConjurorSet": "イヌの魔道士 (魔道士)",
     "spring2017FloralMouseSet": "花のネズミ (治療師)",
     "spring2017SneakyBunnySet": "こそこそウサギ (盗賊)",
     "summer2017SandcastleWarriorSet": "砂の城の戦士 (戦士)",
@@ -113,5 +113,6 @@
     "dateEndMay": "5月17日",
     "dateEndJune": "6月14日",
     "dateEndJuly": "7月29日",
+    "dateEndAugust": "8月31日",
     "discountBundle": "パック"
 }

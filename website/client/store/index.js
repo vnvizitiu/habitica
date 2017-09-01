@@ -1,7 +1,8 @@
 import Store from 'client/libs/store';
 import deepFreeze from 'client/libs/deepFreeze';
 import content from 'common/script/content/index';
-import * as constants from 'common/script/constants';
+import * as commonConstants from 'common/script/constants';
+import { DAY_MAPPING } from 'common/script/cron';
 import { asyncResourceFactory } from 'client/libs/asyncResource';
 import axios from 'axios';
 
@@ -13,6 +14,7 @@ const IS_TEST = process.env.NODE_ENV === 'test'; // eslint-disable-line no-proce
 // Load user auth parameters and determine if it's logged in
 // before trying to load data
 let isUserLoggedIn = false;
+axios.defaults.headers.common['x-client'] = 'habitica-web';
 
 let AUTH_SETTINGS = localStorage.getItem('habit-mobile-settings');
 
@@ -21,6 +23,16 @@ if (AUTH_SETTINGS) {
   axios.defaults.headers.common['x-api-user'] = AUTH_SETTINGS.auth.apiId;
   axios.defaults.headers.common['x-api-key'] = AUTH_SETTINGS.auth.apiToken;
   isUserLoggedIn = true;
+}
+
+const i18nData = window && window['habitica-i18n'];
+
+let availableLanguages = [];
+let selectedLanguage = {};
+
+if (i18nData) {
+  availableLanguages = i18nData.availableLanguages;
+  selectedLanguage = i18nData.language;
 }
 
 // Export a function that generates the store and not the store directly
@@ -39,17 +51,59 @@ export default function () {
       isUserLoggedIn,
       user: asyncResourceFactory(),
       tasks: asyncResourceFactory(), // user tasks
+      completedTodosStatus: 'NOT_LOADED',
       party: {
         quest: {},
         members: asyncResourceFactory(),
       },
+      shops: {
+        market: asyncResourceFactory(),
+        quests: asyncResourceFactory(),
+        seasonal: asyncResourceFactory(),
+        'time-travelers': asyncResourceFactory(),
+      },
       myGuilds: [],
+      publicGuilds: [],
+      groupFormOptions: {
+        creatingParty: false,
+        groupId: '',
+      },
+      avatarEditorOptions: {
+        editingUser: false,
+        startingPage: '',
+        subPage: '',
+      },
+      flagChatOptions: {
+        message: {},
+        groupId: '',
+      },
       editingGroup: {}, // TODO move to local state
       // content data, frozen to prevent Vue from modifying it since it's static and never changes
       // TODO apply freezing to the entire codebase (the server) and not only to the client side?
       // NOTE this takes about 10-15ms on a fast computer
       content: deepFreeze(content),
-      constants: deepFreeze(constants),
+      constants: deepFreeze({...commonConstants, DAY_MAPPING}),
+      i18n: deepFreeze({
+        availableLanguages,
+        selectedLanguage,
+      }),
+      hideHeader: false,
+      memberModalOptions: {
+        viewingMembers: [],
+        groupId: '',
+        group: {},
+      },
+      openedItemRows: [],
+      spellOptions: {
+        castingSpell: false,
+        spellDrawOpen: true,
+      },
+      profileOptions: {
+        startingPage: '',
+      },
+      profileUser: {},
+      upgradingGroup: {},
+      notificationStore: [],
     },
   });
 

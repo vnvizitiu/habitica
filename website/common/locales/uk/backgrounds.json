@@ -3,7 +3,7 @@
     "background": "Фон",
     "backgroundShop": "Магазин фонів",
     "backgroundShopText": "Магазин фонів",
-    "noBackground": "Тло не обрано",
+    "noBackground": "Фон не вибраний",
     "backgrounds062014": "Набір 1: Випущений у червні 2014",
     "backgroundBeachText": "Пляж",
     "backgroundBeachNotes": "Побайдикуйте на теплому пляжі",
@@ -282,5 +282,12 @@
     "backgroundKelpForestText": "Kelp Forest",
     "backgroundKelpForestNotes": "Swim through a Kelp Forest.",
     "backgroundMidnightLakeText": "Midnight Lake",
-    "backgroundMidnightLakeNotes": "Rest by a Midnight Lake."
+    "backgroundMidnightLakeNotes": "Rest by a Midnight Lake.",
+    "backgrounds082017": "SET 39: Released August 2017",
+    "backgroundBackOfGiantBeastText": "Back of a Giant Beast",
+    "backgroundBackOfGiantBeastNotes": "Ride on the Back of a Giant Beast.",
+    "backgroundDesertDunesText": "Desert Dunes",
+    "backgroundDesertDunesNotes": "Boldly explore the Desert Dunes.",
+    "backgroundSummerFireworksText": "Summer Fireworks",
+    "backgroundSummerFireworksNotes": "Celebrate Habitica's Naming Day with Summer Fireworks!"
 }

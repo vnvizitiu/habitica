@@ -3,7 +3,7 @@ import { shouldDo } from 'common/script/cron';
 // Return all the tags belonging to an user task
 export function getTagsFor (store) {
   return (task) => store.state.user.data.tags
-    .filter(tag => task.tags.indexOf(tag.id) !== -1)
+    .filter(tag => task.tags && task.tags.indexOf(tag.id) !== -1)
     .map(tag => tag.name);
 }
 
@@ -29,7 +29,8 @@ export function getTaskClasses (store) {
   const userPreferences = store.state.user.data.preferences;
 
   // Purpose is one of 'controls', 'editModal', 'createModal', 'content'
-  return (task, purpose) => {
+  return (task, purpose, dueDate) => {
+    if (!dueDate) dueDate = new Date();
     const type = task.type;
 
     switch (purpose) {
@@ -37,10 +38,15 @@ export function getTaskClasses (store) {
         return 'task-purple';
       case 'editModal':
         return type === 'reward' ? 'task-purple' : getTaskColorByValue(task.value);
+      case 'controlCreate':
+        return {
+          up: task.up ? 'task-purple' : 'task-habit-disabled',
+          down: task.down ? 'task-purple' : 'task-habit-disabled',
+        };
       case 'control':
         switch (type) {
           case 'daily':
-            if (task.completed || !shouldDo(new Date(), task, userPreferences)) return 'task-daily-todo-disabled';
+            if (task.completed || !shouldDo(dueDate, task, userPreferences)) return 'task-daily-todo-disabled';
             return getTaskColorByValue(task.value);
           case 'todo':
             if (task.completed) return 'task-daily-todo-disabled';
